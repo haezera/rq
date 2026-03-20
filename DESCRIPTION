@@ -9,6 +9,8 @@ Imports:
     visNetwork,
     R6
 Suggests:
+    cronR,
+    taskscheduleR,
     knitr,
     rmarkdown,
     testthat (>= 3.0.0)
