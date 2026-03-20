@@ -5,6 +5,9 @@ Authors@R:
     person("Hae", "Kim", , "haeohreum04@gmail.com", role = c("aut", "cre"))
 Description: Hiearchical job queueing simplified in R
 License: MIT + file LICENSE
+Imports:
+    visNetwork,
+    R6
 Suggests:
     knitr,
     rmarkdown,

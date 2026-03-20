@@ -19,8 +19,11 @@ Owns the job graph, validates it, and drives execution.
 \item \href{#method-JobOrchestrator-new}{\code{JobOrchestrator$new()}}
 \item \href{#method-JobOrchestrator-add_job}{\code{JobOrchestrator$add_job()}}
 \item \href{#method-JobOrchestrator-run}{\code{JobOrchestrator$run()}}
+\item \href{#method-JobOrchestrator-remove_job}{\code{JobOrchestrator$remove_job()}}
+\item \href{#method-JobOrchestrator-validate}{\code{JobOrchestrator$validate()}}
 \item \href{#method-JobOrchestrator-jobs}{\code{JobOrchestrator$jobs()}}
 \item \href{#method-JobOrchestrator-status}{\code{JobOrchestrator$status()}}
+\item \href{#method-JobOrchestrator-visualize}{\code{JobOrchestrator$visualize()}}
 \item \href{#method-JobOrchestrator-print}{\code{JobOrchestrator$print()}}
 \item \href{#method-JobOrchestrator-clone}{\code{JobOrchestrator$clone()}}
 }
@@ -79,6 +82,39 @@ Start executing the graph, blocking until all jobs are done.
 }
 }
 \if{html}{\out{<hr>}}
+\if{html}{\out{<a id="method-JobOrchestrator-remove_job"></a>}}
+\if{latex}{\out{\hypertarget{method-JobOrchestrator-remove_job}{}}}
+\subsection{Method \code{remove_job()}}{
+Remove a registered job and clean up all edges.
+Upstream jobs will have this job removed from their downstream list.
+Downstream jobs will have this job removed from their upstream list.
+\subsection{Usage}{
+\if{html}{\out{<div class="r">}}\preformatted{JobOrchestrator$remove_job(name)}\if{html}{\out{</div>}}
+}
+
+\subsection{Arguments}{
+\if{html}{\out{<div class="arguments">}}
+\describe{
+\item{\code{name}}{The name of the job to remove.}
+}
+\if{html}{\out{</div>}}
+}
+}
+\if{html}{\out{<hr>}}
+\if{html}{\out{<a id="method-JobOrchestrator-validate"></a>}}
+\if{latex}{\out{\hypertarget{method-JobOrchestrator-validate}{}}}
+\subsection{Method \code{validate()}}{
+Validate the orchestrator state before running.
+Checks that all script paths still exist and the graph is acyclic.
+\subsection{Usage}{
+\if{html}{\out{<div class="r">}}\preformatted{JobOrchestrator$validate()}\if{html}{\out{</div>}}
+}
+
+\subsection{Returns}{
+TRUE if valid, FALSE otherwise (with a warning per issue found).
+}
+}
+\if{html}{\out{<hr>}}
 \if{html}{\out{<a id="method-JobOrchestrator-jobs"></a>}}
 \if{latex}{\out{\hypertarget{method-JobOrchestrator-jobs}{}}}
 \subsection{Method \code{jobs()}}{
@@ -95,6 +131,18 @@ Returns the list of registered JobNodes, keyed by id.
 Summary of each job's final status.
 \subsection{Usage}{
 \if{html}{\out{<div class="r">}}\preformatted{JobOrchestrator$status()}\if{html}{\out{</div>}}
+}
+
+}
+\if{html}{\out{<hr>}}
+\if{html}{\out{<a id="method-JobOrchestrator-visualize"></a>}}
+\if{latex}{\out{\hypertarget{method-JobOrchestrator-visualize}{}}}
+\subsection{Method \code{visualize()}}{
+Render the job DAG as an interactive graph in the RStudio Viewer.
+Nodes are colored by current status:
+pending = white, running = gold, success = green, failed = red, skipped = grey.
+\subsection{Usage}{
+\if{html}{\out{<div class="r">}}\preformatted{JobOrchestrator$visualize()}\if{html}{\out{</div>}}
 }
 
 }

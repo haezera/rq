@@ -103,17 +103,28 @@ jo$add_job(wake_up_job)
 ```
 
 Before we run anything, we might want to visualise how our workflow runs.
-We can this using the `WorkflowPrinter`.
+We can this using the `visualise`.
 
 ```{r}
-wp <- WorkflowPrinter$new()
-wp$print_workflow(jo)
+jo$visualize()
 ```
 
-We can then get to actually running the `JobOrchestrator`.
+`visualise` gives a interactive view of how your jobs are going/went.
+
+We can then get to actually running the `JobOrchestrator`. We want to first check that 
 
 ```{r}
+jo
 jo$run()
 ```
 
-Cool! `Motivated job` waited until `Lazy job` was finished before running successfully.
+Cool! `Motivated job` waited until `Lazy job` was finished before running successfully. If we `visualise` again...
+
+```{r}
+jo$visualize()
+```
+
+We can see that both jobs have succeeded.
+
+### A more realistic example
+

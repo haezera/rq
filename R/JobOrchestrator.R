@@ -1,6 +1,7 @@
 #' @title JobOrchestrator
 #' @description Owns the job graph, validates it, and drives execution.
 #' @import R6
+#' @importFrom visNetwork visNetwork visEdges visNodes visOptions
 #' @export
 JobOrchestrator <- R6::R6Class(
   "JobOrchestrator",
@@ -159,6 +160,50 @@ JobOrchestrator <- R6::R6Class(
       invisible(self)
     },
 
+    #' @description Remove a registered job and clean up all edges.
+    #'   Upstream jobs will have this job removed from their downstream list.
+    #'   Downstream jobs will have this job removed from their upstream list.
+    #'
+    #' @param name The name of the job to remove.
+    remove_job = function(name) {
+      if (!name %in% names(private$.jobs)) stop(sprintf("No job named '%s' is registered.", name))
+
+      job <- private$.jobs[[name]]
+
+      for (dep in job$upstream) {
+        dep$downstream <- Filter(function(d) d$name != name, dep$downstream)
+      }
+
+      for (dep in job$downstream) {
+        dep$upstream <- Filter(function(u) u$name != name, dep$upstream)
+      }
+
+      private$.jobs[[name]] <- NULL
+      invisible(self)
+    },
+
+    #' @description Validate the orchestrator state before running.
+    #'   Checks that all script paths still exist and the graph is acyclic.
+    #'
+    #' @return TRUE if valid, FALSE otherwise (with a warning per issue found).
+    validate = function() {
+      valid <- TRUE
+
+      for (job in private$.jobs) {
+        if (!file.exists(job$script_path)) {
+          warning(sprintf("Job '%s': script not found at '%s'.", job$name, job$script_path))
+          valid <- FALSE
+        }
+      }
+
+      if (private$has_cycle()) {
+        warning("Graph contains a cycle.")
+        valid <- FALSE
+      }
+
+      valid
+    },
+
     #' @description Returns the list of registered JobNodes, keyed by id.
     jobs = function() {
       private$.jobs
@@ -169,6 +214,57 @@ JobOrchestrator <- R6::R6Class(
       names    <- names(private$.jobs)
       statuses <- vapply(private$.jobs, function(j) j$status, character(1))
       data.frame(name = names, status = statuses, row.names = NULL)
+    },
+
+    #' @description Render the job DAG as an interactive graph in the RStudio Viewer.
+    #'   Nodes are colored by current status:
+    #'   pending = white, running = gold, success = green, failed = red, skipped = grey.
+    visualize = function() {
+      status_color <- c(
+        pending = "#FFFFFF",
+        running  = "#F5A623",
+        success  = "#7ED321",
+        failed   = "#D0021B",
+        skipped  = "#9B9B9B"
+      )
+      status_font_color <- c(
+        pending = "#000000",
+        running  = "#FFFFFF",
+        success  = "#FFFFFF",
+        failed   = "#FFFFFF",
+        skipped  = "#FFFFFF"
+      )
+
+      job_names <- names(private$.jobs)
+      job_index <- setNames(seq_along(private$.jobs), job_names)
+
+      nodes <- data.frame(
+        id    = unname(job_index),
+        label = vapply(private$.jobs, function(j) paste0(j$name, "\n[", j$status, "]"), character(1)),
+        color = vapply(private$.jobs, function(j) status_color[[j$status]],      character(1)),
+        font.color = vapply(private$.jobs, function(j) status_font_color[[j$status]], character(1)),
+        shape = "box",
+        stringsAsFactors = FALSE
+      )
+
+      edge_from <- integer(0)
+      edge_to   <- integer(0)
+      for (job in private$.jobs) {
+        for (up in job$upstream) {
+          edge_from <- c(edge_from, job_index[[up$name]])
+          edge_to   <- c(edge_to,   job_index[[job$name]])
+        }
+      }
+
+      edges <- if (length(edge_from) > 0) {
+        data.frame(from = edge_from, to = edge_to, arrows = "to", stringsAsFactors = FALSE)
+      } else {
+        data.frame(from = integer(0), to = integer(0), arrows = character(0), stringsAsFactors = FALSE)
+      }
+
+      visNetwork(nodes, edges) |>
+        visEdges(smooth = list(type = "cubicBezier")) |>
+        visOptions(highlightNearest = TRUE)
     },
 
     #' @description Print a short summary of the orchestrator.

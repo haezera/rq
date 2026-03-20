@@ -2,5 +2,8 @@
 
 export(JobNode)
 export(JobOrchestrator)
-export(WorkflowPrinter)
 import(R6)
+importFrom(visNetwork,visEdges)
+importFrom(visNetwork,visNetwork)
+importFrom(visNetwork,visNodes)
+importFrom(visNetwork,visOptions)
