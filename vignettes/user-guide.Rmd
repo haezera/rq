@@ -69,7 +69,6 @@ The `JobOrchestrator` will check for you whether your workflow is a compliant on
 (it must be directed and acyclic!).
 
 ```{r}
-
 sleep_then_print_script <- dummy_script(
   "Sys.sleep(2)",
   "print('God - we are awfully tired')",
@@ -106,7 +105,7 @@ Before we run anything, we might want to visualise how our workflow runs.
 We can this using the `visualise`.
 
 ```{r}
-jo$visualize()
+jo$visualise()
 ```
 
 `visualise` gives a interactive view of how your jobs are going/went.
@@ -121,10 +120,104 @@ jo$run()
 Cool! `Motivated job` waited until `Lazy job` was finished before running successfully. If we `visualise` again...
 
 ```{r}
-jo$visualize()
+jo$visualise()
 ```
 
 We can see that both jobs have succeeded.
 
 ### A more realistic example
 
+Let's say you are a quantitative research working on a pipeline which pulls
+data from `Bloomberg`, aggregates the data, and then writes the aggregations
+into a database. We've just added a new data source from `FRED`, which is
+aggregated in the same aggregation script.
+
+Let's set up that workflow.
+
+```{r}
+bloomberg_data <- dummy_script(
+  "print('Pulling data from Bloomberg...')",
+  "Sys.sleep(5)",
+  "print('Success!')"
+)
+
+fred_data <- dummy_script(
+  "print('Pulling data from FRED...')",
+  "Sys.sleep(2)",
+  "q(status = 1)"
+)
+
+agg_script <- dummy_script(
+  "print('Aggregating...')",
+  "Sys.sleep(3)"
+)
+
+db_write <- dummy_script(
+  "print('Saving to db...')",
+  "Sys.sleep(1)"
+)
+
+bbg_job <- JobNode$new('BBG Data', bloomberg_data)
+fred_job <- JobNode$new('FRED Data', fred_data, on_fail="halt")
+agg_job <- JobNode$new('Aggregation', agg_script, upstream = list(bbg_job, fred_job))
+db_job <- JobNode$new('Write to DB', db_write, upstream = list(agg_job))
+
+jo <- JobOrchestrator$new()
+jo$add_job(bbg_job)
+jo$add_job(fred_job)
+jo$add_job(agg_job)
+jo$add_job(db_job)
+
+jo$visualise()
+```
+
+You will notice that the FRED data script fails. Let's see what happens when we run the orchestrator.
+
+```{r}
+jo$run()
+```
+
+We can also visualise where the workflow failed.
+
+```{r}
+jo$visualise()
+```
+
+So the orchestrator halts on `FRED Data`, as we've told it to halt. In data science and ETL workflows, it's often the 
+case (particularly for things like scraped data) that things don't work deterministically. We can instead, add
+`retries`.
+
+```{r}
+jo$remove_job('FRED Data')
+
+# fails 80% of the time
+fred_data <- dummy_script(
+  "print('Pulling data from FRED...')",
+  "Sys.sleep(2)",
+  "if (runif(1) < 0.8) q(status = 1)"
+)
+
+fred_job <- JobNode$new('FRED Data', fred_data)
+
+jo$add_job(fred_job, retries=10)
+
+# relink the aggregation job to the fred job
+jo$add_upstream('Aggregation', 'FRED Data')
+
+# reset the orchestrator
+jo$reset_all()
+
+jo$visualise()
+```
+
+Okay, let's try running this again.
+
+```{r}
+jo$run()
+```
+
+The FRED data retried once, and then succeeded.
+
+```{r}
+jo$visualise()
+```

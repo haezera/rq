@@ -53,3 +53,7 @@ test_that("reset() clears status and last_run", {
   expect_equal(job$status, "pending")
   expect_null(job$last_run)
 })
+
+test_that("JobNode defaults retries_remaining to 0", {
+  expect_equal(make_job()$retries_remaining, 0L)
+})

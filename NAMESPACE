@@ -2,6 +2,7 @@
 
 export(JobNode)
 export(JobOrchestrator)
+export(prettylog)
 import(R6)
 importFrom(visNetwork,visEdges)
 importFrom(visNetwork,visNetwork)

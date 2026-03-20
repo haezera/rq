@@ -20,10 +20,13 @@ Owns the job graph, validates it, and drives execution.
 \item \href{#method-JobOrchestrator-add_job}{\code{JobOrchestrator$add_job()}}
 \item \href{#method-JobOrchestrator-run}{\code{JobOrchestrator$run()}}
 \item \href{#method-JobOrchestrator-remove_job}{\code{JobOrchestrator$remove_job()}}
+\item \href{#method-JobOrchestrator-add_upstream}{\code{JobOrchestrator$add_upstream()}}
+\item \href{#method-JobOrchestrator-remove_upstream}{\code{JobOrchestrator$remove_upstream()}}
 \item \href{#method-JobOrchestrator-validate}{\code{JobOrchestrator$validate()}}
+\item \href{#method-JobOrchestrator-reset_all}{\code{JobOrchestrator$reset_all()}}
 \item \href{#method-JobOrchestrator-jobs}{\code{JobOrchestrator$jobs()}}
 \item \href{#method-JobOrchestrator-status}{\code{JobOrchestrator$status()}}
-\item \href{#method-JobOrchestrator-visualize}{\code{JobOrchestrator$visualize()}}
+\item \href{#method-JobOrchestrator-visualise}{\code{JobOrchestrator$visualise()}}
 \item \href{#method-JobOrchestrator-print}{\code{JobOrchestrator$print()}}
 \item \href{#method-JobOrchestrator-clone}{\code{JobOrchestrator$clone()}}
 }
@@ -53,13 +56,15 @@ Register a JobNode with the orchestrator.
 Downstream edges are inferred automatically from the job's upstream list.
 Validates the graph is still acyclic after each addition.
 \subsection{Usage}{
-\if{html}{\out{<div class="r">}}\preformatted{JobOrchestrator$add_job(job)}\if{html}{\out{</div>}}
+\if{html}{\out{<div class="r">}}\preformatted{JobOrchestrator$add_job(job, retries = 0L)}\if{html}{\out{</div>}}
 }
 
 \subsection{Arguments}{
 \if{html}{\out{<div class="arguments">}}
 \describe{
 \item{\code{job}}{A JobNode instance.}
+
+\item{\code{retries}}{Number of times to retry the job on failure before giving up. Defaults to 0.}
 }
 \if{html}{\out{</div>}}
 }
@@ -85,9 +90,9 @@ Start executing the graph, blocking until all jobs are done.
 \if{html}{\out{<a id="method-JobOrchestrator-remove_job"></a>}}
 \if{latex}{\out{\hypertarget{method-JobOrchestrator-remove_job}{}}}
 \subsection{Method \code{remove_job()}}{
-Remove a registered job and clean up all edges.
+Remove a registered job and detach all edges.
 Upstream jobs will have this job removed from their downstream list.
-Downstream jobs will have this job removed from their upstream list.
+Downstream jobs will have this job removed from their upstream list (detached, not removed).
 \subsection{Usage}{
 \if{html}{\out{<div class="r">}}\preformatted{JobOrchestrator$remove_job(name)}\if{html}{\out{</div>}}
 }
@@ -96,6 +101,45 @@ Downstream jobs will have this job removed from their upstream list.
 \if{html}{\out{<div class="arguments">}}
 \describe{
 \item{\code{name}}{The name of the job to remove.}
+}
+\if{html}{\out{</div>}}
+}
+}
+\if{html}{\out{<hr>}}
+\if{html}{\out{<a id="method-JobOrchestrator-add_upstream"></a>}}
+\if{latex}{\out{\hypertarget{method-JobOrchestrator-add_upstream}{}}}
+\subsection{Method \code{add_upstream()}}{
+Add an upstream dependency between two registered jobs by name.
+Validates the graph remains acyclic after wiring.
+\subsection{Usage}{
+\if{html}{\out{<div class="r">}}\preformatted{JobOrchestrator$add_upstream(job_name, upstream_name)}\if{html}{\out{</div>}}
+}
+
+\subsection{Arguments}{
+\if{html}{\out{<div class="arguments">}}
+\describe{
+\item{\code{job_name}}{The name of the job that depends on the upstream job.}
+
+\item{\code{upstream_name}}{The name of the job to add as an upstream dependency.}
+}
+\if{html}{\out{</div>}}
+}
+}
+\if{html}{\out{<hr>}}
+\if{html}{\out{<a id="method-JobOrchestrator-remove_upstream"></a>}}
+\if{latex}{\out{\hypertarget{method-JobOrchestrator-remove_upstream}{}}}
+\subsection{Method \code{remove_upstream()}}{
+Remove an upstream dependency between two registered jobs by name.
+\subsection{Usage}{
+\if{html}{\out{<div class="r">}}\preformatted{JobOrchestrator$remove_upstream(job_name, upstream_name)}\if{html}{\out{</div>}}
+}
+
+\subsection{Arguments}{
+\if{html}{\out{<div class="arguments">}}
+\describe{
+\item{\code{job_name}}{The name of the job to remove the upstream dependency from.}
+
+\item{\code{upstream_name}}{The name of the upstream job to detach.}
 }
 \if{html}{\out{</div>}}
 }
@@ -113,6 +157,17 @@ Checks that all script paths still exist and the graph is acyclic.
 \subsection{Returns}{
 TRUE if valid, FALSE otherwise (with a warning per issue found).
 }
+}
+\if{html}{\out{<hr>}}
+\if{html}{\out{<a id="method-JobOrchestrator-reset_all"></a>}}
+\if{latex}{\out{\hypertarget{method-JobOrchestrator-reset_all}{}}}
+\subsection{Method \code{reset_all()}}{
+Reset all registered jobs to pending and restore their retry counts.
+Use this to re-run the entire graph after a failure.
+\subsection{Usage}{
+\if{html}{\out{<div class="r">}}\preformatted{JobOrchestrator$reset_all()}\if{html}{\out{</div>}}
+}
+
 }
 \if{html}{\out{<hr>}}
 \if{html}{\out{<a id="method-JobOrchestrator-jobs"></a>}}
@@ -135,14 +190,14 @@ Summary of each job's final status.
 
 }
 \if{html}{\out{<hr>}}
-\if{html}{\out{<a id="method-JobOrchestrator-visualize"></a>}}
-\if{latex}{\out{\hypertarget{method-JobOrchestrator-visualize}{}}}
-\subsection{Method \code{visualize()}}{
+\if{html}{\out{<a id="method-JobOrchestrator-visualise"></a>}}
+\if{latex}{\out{\hypertarget{method-JobOrchestrator-visualise}{}}}
+\subsection{Method \code{visualise()}}{
 Render the job DAG as an interactive graph in the RStudio Viewer.
 Nodes are colored by current status:
 pending = white, running = gold, success = green, failed = red, skipped = grey.
 \subsection{Usage}{
-\if{html}{\out{<div class="r">}}\preformatted{JobOrchestrator$visualize()}\if{html}{\out{</div>}}
+\if{html}{\out{<div class="r">}}\preformatted{JobOrchestrator$visualise()}\if{html}{\out{</div>}}
 }
 
 }

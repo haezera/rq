@@ -69,9 +69,12 @@ JobOrchestrator <- R6::R6Class(
     #'   Validates the graph is still acyclic after each addition.
     #'
     #' @param job A JobNode instance.
-    add_job = function(job) {
+    #' @param retries Number of times to retry the job on failure before giving up. Defaults to 0.
+    add_job = function(job, retries = 0L) {
       if (!inherits(job, "JobNode")) stop("Expected a JobNode instance.")
       if (job$name %in% names(private$.jobs)) stop(sprintf("Job '%s' already registered.", job$name))
+      stopifnot(is.numeric(retries), length(retries) == 1, retries >= 0)
+      job$set_max_retries(retries)
 
       # Wire up the reverse edges so users only need to declare upstream.
       for (dep in job$upstream) {
@@ -99,7 +102,8 @@ JobOrchestrator <- R6::R6Class(
       handles <- list()
 
       terminal <- c("success", "failed", "skipped")
-      halted   <- FALSE
+      halted      <- FALSE
+      halted_job  <- NULL
 
       while (TRUE) {
         for (id in names(handles)) {
@@ -111,20 +115,23 @@ JobOrchestrator <- R6::R6Class(
           stdout <- handle$read_output_lines()
           stderr <- handle$read_error_lines()
 
-          if (length(stdout) > 0)
-            cat(sprintf("[%s] %s\n", job$name, stdout), sep = "")
-          if (length(stderr) > 0)
-            cat(sprintf("[%s][err] %s\n", job$name, stderr), sep = "")
+          for (line in stdout) prettylog(job$name, line)
+          for (line in stderr) prettylog(job$name, "[err] ", line)
 
           if (!handle$is_alive()) {
 
             if (handle$get_exit_status() == 0L) {
               job$status <- "success"
+            } else if (job$retries_remaining > 0L) {
+              job$retries_remaining <- job$retries_remaining - 1L
+              prettylog(job$name, "failed, retrying (", job$retries_remaining, " attempt(s) left).")
+              job$status <- "pending"
             } else {
               job$status <- "failed"
 
               if (job$on_fail == "halt") {
-                halted <- TRUE
+                halted     <- TRUE
+                halted_job <- job$name
               } else {
                 private$skip_downstream(job)
               }
@@ -139,7 +146,7 @@ JobOrchestrator <- R6::R6Class(
           for (job in private$.jobs) {
             if (!job$status %in% terminal) job$status <- "skipped"
           }
-          stop("Graph halted due to a failed job with on_fail = 'halt'.")
+          stop(sprintf("Graph halted: job '%s' failed with on_fail = 'halt'.", halted_job))
         }
 
         # if the job is ready to go, kick it off — but respect the worker cap
@@ -160,9 +167,9 @@ JobOrchestrator <- R6::R6Class(
       invisible(self)
     },
 
-    #' @description Remove a registered job and clean up all edges.
+    #' @description Remove a registered job and detach all edges.
     #'   Upstream jobs will have this job removed from their downstream list.
-    #'   Downstream jobs will have this job removed from their upstream list.
+    #'   Downstream jobs will have this job removed from their upstream list (detached, not removed).
     #'
     #' @param name The name of the job to remove.
     remove_job = function(name) {
@@ -179,6 +186,55 @@ JobOrchestrator <- R6::R6Class(
       }
 
       private$.jobs[[name]] <- NULL
+      invisible(self)
+    },
+
+    #' @description Add an upstream dependency between two registered jobs by name.
+    #'   Validates the graph remains acyclic after wiring.
+    #'
+    #' @param job_name The name of the job that depends on the upstream job.
+    #' @param upstream_name The name of the job to add as an upstream dependency.
+    add_upstream = function(job_name, upstream_name) {
+      if (!job_name %in% names(private$.jobs)) stop(sprintf("No job named '%s' is registered.", job_name))
+      if (!upstream_name %in% names(private$.jobs)) stop(sprintf("No job named '%s' is registered.", upstream_name))
+
+      job <- private$.jobs[[job_name]]
+      upstream_job <- private$.jobs[[upstream_name]]
+
+      if (upstream_name %in% vapply(job$upstream, function(u) u$name, character(1))) {
+        stop(sprintf("'%s' is already an upstream dependency of '%s'.", upstream_name, job_name))
+      }
+
+      job$upstream <- c(job$upstream, list(upstream_job))
+      upstream_job$downstream <- c(upstream_job$downstream, list(job))
+
+      if (private$has_cycle()) {
+        job$upstream <- Filter(function(u) u$name != upstream_name, job$upstream)
+        upstream_job$downstream <- Filter(function(d) d$name != job_name, upstream_job$downstream)
+        stop(sprintf("Adding '%s' as upstream of '%s' would introduce a cycle.", upstream_name, job_name))
+      }
+
+      invisible(self)
+    },
+
+    #' @description Remove an upstream dependency between two registered jobs by name.
+    #'
+    #' @param job_name The name of the job to remove the upstream dependency from.
+    #' @param upstream_name The name of the upstream job to detach.
+    remove_upstream = function(job_name, upstream_name) {
+      if (!job_name %in% names(private$.jobs)) stop(sprintf("No job named '%s' is registered.", job_name))
+      if (!upstream_name %in% names(private$.jobs)) stop(sprintf("No job named '%s' is registered.", upstream_name))
+
+      job <- private$.jobs[[job_name]]
+      upstream_job <- private$.jobs[[upstream_name]]
+
+      if (!upstream_name %in% vapply(job$upstream, function(u) u$name, character(1))) {
+        stop(sprintf("'%s' is not an upstream dependency of '%s'.", upstream_name, job_name))
+      }
+
+      job$upstream <- Filter(function(u) u$name != upstream_name, job$upstream)
+      upstream_job$downstream <- Filter(function(d) d$name != job_name, upstream_job$downstream)
+
       invisible(self)
     },
 
@@ -204,6 +260,13 @@ JobOrchestrator <- R6::R6Class(
       valid
     },
 
+    #' @description Reset all registered jobs to pending and restore their retry counts.
+    #'   Use this to re-run the entire graph after a failure.
+    reset_all = function() {
+      for (job in private$.jobs) job$reset()
+      invisible(self)
+    },
+
     #' @description Returns the list of registered JobNodes, keyed by id.
     jobs = function() {
       private$.jobs
@@ -219,7 +282,7 @@ JobOrchestrator <- R6::R6Class(
     #' @description Render the job DAG as an interactive graph in the RStudio Viewer.
     #'   Nodes are colored by current status:
     #'   pending = white, running = gold, success = green, failed = red, skipped = grey.
-    visualize = function() {
+    visualise = function() {
       status_color <- c(
         pending = "#FFFFFF",
         running  = "#F5A623",

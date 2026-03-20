@@ -5,6 +5,10 @@
 JobNode <- R6::R6Class(
   "JobNode",
 
+  private = list(
+    .max_retries = NULL
+  ),
+
   public = list(
     #' @field name Human-readable name for this job, used in printing and keying the graph.
     name = NULL,
@@ -29,6 +33,9 @@ JobNode <- R6::R6Class(
     #'   "halt" stops the entire graph immediately.
     on_fail = NULL,
 
+    #' @field retries_remaining Number of retry attempts still available.
+    retries_remaining = NULL,
+
     #' @param name Unique string identifier for this job.
     #' @param script_path Path to the R script this job executes.
     #' @param upstream List of JobNode objects this job depends on.
@@ -43,14 +50,16 @@ JobNode <- R6::R6Class(
       self$upstream <- upstream
       self$downstream <- list()
       self$on_fail <- on_fail
+      self$retries_remaining <- 0L
+      private$.max_retries <- 0L
       self$status <- "pending"
       self$last_run <- NULL
     },
 
     #' @description Run the job's script in a fresh R session.
-    #' 
+    #'
     #' Must only be called if and only if `$is_ready` returns TRUE.
-    #' 
+    #'
     #' @return A callr process handle for the caller to poll or wait on.
     run = function() {
       self$status <- "running"
@@ -68,10 +77,18 @@ JobNode <- R6::R6Class(
       all(sapply(self$upstream, function(j) j$status == "success"))
     },
 
-    #' @description Reset to pending, e.g. for re-runs or testing.
+    #' @description Reset to pending and restore the original retry count.
     reset = function() {
       self$status <- "pending"
       self$last_run <- NULL
+      self$retries_remaining <- private$.max_retries
+    },
+
+    #' @description Set the maximum retries for this job (called by JobOrchestrator$add_job).
+    #' @param n Integer number of retries.
+    set_max_retries = function(n) {
+      private$.max_retries <- as.integer(n)
+      self$retries_remaining <- as.integer(n)
     },
 
     #' @description Print a short summary of the job.
