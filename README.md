@@ -1,4 +1,4 @@
-# rq
+## rq
 
 `rq` is a lightweight job scheduler for R. You define your work as a collection of R scripts, declare what depends on what, and `rq` runs them in the right order — in parallel where it can, respecting dependencies where it must.
 
@@ -6,13 +6,24 @@ It was designed very specifically for the simple workflows that come up in place
 
 `rq` is a simple drop-in replacement to these sorts of workflows; all you need to provide is the path to the scripts, names that describes these scripts well, and the dependencies for each job.
 
-## Installation
+### Features
+
+- [X] DAG-like workflow orchestration
+- [X] Concurrent job execution
+- [X] Retries for non-deterministic jobs
+- [ ] Job timeouts
+- [X] Graph visualisation using `visNetwork`
+- [ ] Scheduling of workflows using `cron`, etc.
+- [ ] Execution logging
+- [ ] Workflow/jobs run history
+
+### Installation
 
 ```r
 devtools::install_github("haezera/rq")
 ```
 
-## Quick example
+### Quick example
 
 ```r
 library(rq)
@@ -31,6 +42,6 @@ jo$run()
 
 Jobs that share no dependencies run concurrently, up to `max_workers` (defaults to the number of available cores minus one).
 
-## User guide
+### User guide
 
 For a full walkthrough of the API — including visualising workflows, handling failures, and controlling concurrency — see the [user guide](vignettes/user-guide.Rmd).
