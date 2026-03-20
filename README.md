@@ -13,7 +13,7 @@ It was designed very specifically for the simple workflows that come up in place
 - [X] Retries for non-deterministic jobs
 - [ ] Job timeouts
 - [X] Graph visualisation using `visNetwork`
-- [ ] Scheduling of workflows using `cron`, etc.
+- [X] Scheduling of workflows using `cron`, etc.
 - [ ] Execution logging
 - [ ] Workflow/jobs run history
 
