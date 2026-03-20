@@ -6,33 +6,33 @@ JobOrchestrator <- R6::R6Class(
   "JobOrchestrator",
 
   private = list(
-    jobs = NULL,
+    .jobs = NULL,
 
     has_cycle = function() {
       visited <- character(0)
       in_stack <- character(0)
 
       dfs <- function(job) {
-        visited  <<- c(visited, job$id)
-        in_stack <<- c(in_stack, job$id)
+        visited  <<- c(visited, job$name)
+        in_stack <<- c(in_stack, job$name)
 
         # use dfs to find if there is a loop
         for (dep in job$downstream) {
-          if (!dep$id %in% visited) {
+          if (!dep$name %in% visited) {
             if (dfs(dep)) return(TRUE)
-          } else if (dep$id %in% in_stack) {
+          } else if (dep$name %in% in_stack) {
             return(TRUE)
           }
         }
 
-        in_stack <<- setdiff(in_stack, job$id)
+        in_stack <<- setdiff(in_stack, job$name)
         FALSE
       }
 
       # check if there exists a cycle that starts at each node
       # NOTE: is this actually efficient?
-      for (job in private$jobs) {
-        if (!job$id %in% visited) {
+      for (job in private$.jobs) {
+        if (!job$name %in% visited) {
           if (dfs(job)) return(TRUE)
         }
       }
@@ -59,24 +59,32 @@ JobOrchestrator <- R6::R6Class(
     #' @param max_workers Cap on concurrent jobs. Defaults to all available cores minus one,
     #'   leaving headroom for the orchestrator itself.
     initialize = function(max_workers = parallel::detectCores() - 1L) {
-      private$jobs <- list()
+      private$.jobs <- list()
       self$max_workers <- max_workers
     },
 
     #' @description Register a JobNode with the orchestrator.
-    #'   Edges are inferred from the node's upstream/downstream fields.
+    #'   Downstream edges are inferred automatically from the job's upstream list.
     #'   Validates the graph is still acyclic after each addition.
-    #' 
+    #'
     #' @param job A JobNode instance.
     add_job = function(job) {
       if (!inherits(job, "JobNode")) stop("Expected a JobNode instance.")
-      if (job$id %in% names(private$jobs)) stop(sprintf("Job '%s' already registered.", job$id))
+      if (job$name %in% names(private$.jobs)) stop(sprintf("Job '%s' already registered.", job$name))
 
-      private$jobs[[job$id]] <- job
+      # Wire up the reverse edges so users only need to declare upstream.
+      for (dep in job$upstream) {
+        dep$downstream <- c(dep$downstream, list(job))
+      }
+
+      private$.jobs[[job$name]] <- job
 
       if (private$has_cycle()) {
-        private$jobs[[job$id]] <- NULL
-        stop(sprintf("Adding job '%s' would introduce a cycle. Please consult your job dependencies", job$id))
+        private$.jobs[[job$name]] <- NULL
+        for (dep in job$upstream) {
+          dep$downstream <- Filter(function(d) d$name != job$name, dep$downstream)
+        }
+        stop(sprintf("Adding job '%s' would introduce a cycle. Please consult your job dependencies", job$name))
       }
 
       invisible(self)
@@ -85,7 +93,7 @@ JobOrchestrator <- R6::R6Class(
     #' @description Start executing the graph, blocking until all jobs are done.
     #' @param poll_interval Seconds between status checks.
     run = function(poll_interval = 1) {
-      if (length(private$jobs) == 0) stop("No jobs registered.")
+      if (length(private$.jobs) == 0) stop("No jobs registered.")
 
       handles <- list()
 
@@ -95,9 +103,20 @@ JobOrchestrator <- R6::R6Class(
       while (TRUE) {
         for (id in names(handles)) {
           handle <- handles[[id]]
-          job    <- private$jobs[[id]]
+          job    <- private$.jobs[[id]]
+
+          # Drain whatever output has accumulated since the last tick, whether
+          # or not the process is still running.
+          stdout <- handle$read_output_lines()
+          stderr <- handle$read_error_lines()
+
+          if (length(stdout) > 0)
+            cat(sprintf("[%s] %s\n", job$name, stdout), sep = "")
+          if (length(stderr) > 0)
+            cat(sprintf("[%s][err] %s\n", job$name, stderr), sep = "")
 
           if (!handle$is_alive()) {
+
             if (handle$get_exit_status() == 0L) {
               job$status <- "success"
             } else {
@@ -116,22 +135,22 @@ JobOrchestrator <- R6::R6Class(
 
         if (halted) {
           # this job is halted, so skip everything that relies on it
-          for (job in private$jobs) {
+          for (job in private$.jobs) {
             if (!job$status %in% terminal) job$status <- "skipped"
           }
           stop("Graph halted due to a failed job with on_fail = 'halt'.")
         }
 
         # if the job is ready to go, kick it off — but respect the worker cap
-        for (job in private$jobs) {
+        for (job in private$.jobs) {
           if (length(handles) >= self$max_workers) break
           if (job$status == "pending" && job$is_ready()) {
-            handles[[job$id]] <- job$run()
+            handles[[job$name]] <- job$run()
           }
         }
 
         # all jobs are done, then we can break
-        all_done <- all(vapply(private$jobs, function(j) j$status %in% terminal, logical(1)))
+        all_done <- all(vapply(private$.jobs, function(j) j$status %in% terminal, logical(1)))
         if (all_done && length(handles) == 0) break
 
         Sys.sleep(poll_interval)
@@ -140,15 +159,22 @@ JobOrchestrator <- R6::R6Class(
       invisible(self)
     },
 
-    #' @description Summary of each job's final status.
-    status = function() {
-      ids      <- names(private$jobs)
-      statuses <- vapply(private$jobs, function(j) j$status, character(1))
-      data.frame(id = ids, status = statuses, row.names = NULL)
+    #' @description Returns the list of registered JobNodes, keyed by id.
+    jobs = function() {
+      private$.jobs
     },
 
+    #' @description Summary of each job's final status.
+    status = function() {
+      names    <- names(private$.jobs)
+      statuses <- vapply(private$.jobs, function(j) j$status, character(1))
+      data.frame(name = names, status = statuses, row.names = NULL)
+    },
+
+    #' @description Print a short summary of the orchestrator.
+    #' @param ... Ignored.
     print = function(...) {
-      cat(sprintf("<JobOrchestrator: %d job(s)>\n", length(private$jobs)))
+      cat(sprintf("<JobOrchestrator: %d job(s)>\n", length(private$.jobs)))
       invisible(self)
     }
   )

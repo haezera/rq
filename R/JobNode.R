@@ -6,8 +6,8 @@ JobNode <- R6::R6Class(
   "JobNode",
 
   public = list(
-    #' @field id Unique identifier for this job.
-    id = NULL,
+    #' @field name Human-readable name for this job, used in printing and keying the graph.
+    name = NULL,
 
     #' @field script_path Absolute or relative path to the R script to execute.
     script_path = NULL,
@@ -15,7 +15,7 @@ JobNode <- R6::R6Class(
     #' @field upstream JobNodes that must complete before this one runs.
     upstream = NULL,
 
-    #' @field downstream JobNodes that are unblocked when this one completes.
+    #' @field downstream Populated automatically by JobOrchestrator$add_job() — do not set manually.
     downstream = NULL,
 
     #' @field status One of: "pending", "running", "success", "failed".
@@ -29,20 +29,19 @@ JobNode <- R6::R6Class(
     #'   "halt" stops the entire graph immediately.
     on_fail = NULL,
 
-    #' @param id Unique string identifier for this job.
+    #' @param name Unique string identifier for this job.
     #' @param script_path Path to the R script this job executes.
     #' @param upstream List of JobNode objects this job depends on.
-    #' @param downstream List of JobNode objects that depend on this job.
     #' @param on_fail Either "skip" or "halt". See \code{$on_fail} field.
-    initialize = function(id, script_path, upstream = list(), downstream = list(), on_fail = "skip") {
-      stopifnot(is.character(id), length(id) == 1)
+    initialize = function(name, script_path, upstream = list(), on_fail = "skip") {
+      stopifnot(is.character(name), length(name) == 1)
       stopifnot(file.exists(script_path))
       stopifnot(on_fail %in% c("skip", "halt"))
 
-      self$id <- id
+      self$name <- name
       self$script_path <- script_path
       self$upstream <- upstream
-      self$downstream <- downstream
+      self$downstream <- list()
       self$on_fail <- on_fail
       self$status <- "pending"
       self$last_run <- NULL
@@ -75,8 +74,10 @@ JobNode <- R6::R6Class(
       self$last_run <- NULL
     },
 
+    #' @description Print a short summary of the job.
+    #' @param ... Ignored.
     print = function(...) {
-      cat(sprintf("<JobNode: %s [%s]>\n", self$id, self$status))
+      cat(sprintf("<JobNode: %s [%s]>\n", self$name, self$status))
       invisible(self)
     }
   )

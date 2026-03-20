@@ -1,0 +1,119 @@
+---
+title: "Getting Started with rq"
+output: rmarkdown::html_vignette
+vignette: >
+  %\VignetteIndexEntry{Getting Started with rq}
+  %\VignetteEngine{knitr::rmarkdown}
+  %\VignetteEncoding{UTF-8}
+---
+
+`rq` is a simple, script-basked workflow manager. Specifically, it excels in
+combining simple workflows (say, filling some data from source `X, Y and Z`, 
+aggregating it and then saving to a database) into DAGs, and then executing
+whilst honoring pre-requisites.
+
+This is a user guide which aims to cover all of the functionalities that are
+core to `rq`.
+
+### Creating nodes
+
+`JobNode`s are the building blocks of a workflow in `rq`. They describe a 
+single unit of work; a single `R` script, alongside a `name` which describes
+the workflow.
+
+In this user guide, we will make some temp files to simulate scripts that 
+must run.
+
+```{r}
+library(rq)
+
+dummy_script <- function(...) {
+  path <- tempfile(fileext = ".R")
+  writeLines(c(...), path)
+  path
+}
+
+print_script <- dummy_script("print('Hello, world');")
+print_job <- JobNode$new(
+  'Job which prints hello, world!', 
+  print_script, 
+  upstream=list(), 
+  on_fail = 'halt'
+)
+```
+
+We have just created our first `JobNode`. `rq` is not fussed about whether you use
+these nodes as standalone workflows; if your workflow uses one script, and for whatever
+reason, you'd like to abstract the running of this script - you are free to do so.
+
+```{r}
+if (print_job$is_ready()) {
+  handle <- print_job$run()
+  handle$wait()
+  handle$read_all_output_lines()
+}
+```
+
+The anatomy of a job is described by two major components:
+1. Is the job ready? This is decided by it's `upstream` components - things that it relies on to be finished
+2. Running the job - the job should only be ran once it is ready to run
+
+### Orchestrating and visualising workflows
+
+Having a single script is great, but how do you create workflows? Workflows are
+created by aggregating multiple `JobNode`s into the `JobOrchestrator`. Nothing
+fancy is required - just the creation of a bunch of `JobNode`s with appropiate 
+(and unique) names, and then feed them into the orchestrator.
+
+The `JobOrchestrator` will check for you whether your workflow is a compliant one
+(it must be directed and acyclic!).
+
+```{r}
+
+sleep_then_print_script <- dummy_script(
+  "Sys.sleep(2)",
+  "print('God - we are awfully tired')",
+  "Sys.sleep(3)",
+  "print('Wake up!')"
+)
+
+wake_up_script <- dummy_script(
+  "print('Alright, we are all woken up!')"
+)
+
+sleep_then_print_job <- JobNode$new(
+  "Lazy job",
+  script_path = sleep_then_print_script,
+  upstream = list()
+)
+
+wake_up_job <- JobNode$new(
+  "Motivated job",
+  script_path = wake_up_script,
+  upstream = list(sleep_then_print_job)
+)
+```
+
+We've made two job nodes - the job for 'waking up' and being 'motivated' relies on the sleepy job - we declare this using the `upstream` input. We then feed these jobs into the `JobOrchestrator`.
+
+```{r}
+jo <- JobOrchestrator$new()
+jo$add_job(sleep_then_print_job)
+jo$add_job(wake_up_job)
+```
+
+Before we run anything, we might want to visualise how our workflow runs.
+We can this using the `WorkflowPrinter`.
+
+```{r}
+wp <- WorkflowPrinter$new()
+wp$print_workflow(jo)
+```
+
+We can then get to actually running the `JobOrchestrator`.
+
+```{r}
+jo$run()
+```
+
+Cool! `Motivated job` waited until `Lazy job` was finished before running successfully.
