@@ -2,7 +2,9 @@
 
 `rq` is a lightweight job scheduler for R. You define your work as a collection of R scripts, declare what depends on what, and `rq` runs them in the right order — in parallel where it can, respecting dependencies where it must.
 
-It's designed for the kind of workflows that come up often in data work: pull from a few sources, transform, aggregate, write somewhere. Nothing exotic, but enough moving parts that getting the order right manually is annoying.
+It was designed very specifically for the simple workflows that come up in places like data science and quantitative research. You'll pull some data from source `X`, `Y` and `Z`, aggregate it in another script or function, and then finally save it. In many workflows, some steps have jobs that can run concurrently, and have different runtimes, whilst having child jobs that need to wait for it to be completed.
+
+`rq` is a simple drop-in replacement to these sorts of workflows; all you need to provide is the path to the scripts, names that describes these scripts well, and the dependencies for each job.
 
 ## Installation
 
