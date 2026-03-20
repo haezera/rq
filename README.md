@@ -44,4 +44,4 @@ Jobs that share no dependencies run concurrently, up to `max_workers` (defaults 
 
 ### User guide
 
-For a full walkthrough of the API — including visualising workflows, handling failures, and controlling concurrency — see the [user guide](vignettes/user-guide.Rmd).
+For a full walkthrough of the API — including visualising workflows, handling failures, and controlling concurrency — see the [user guide](vignettes/user-guide.html).
