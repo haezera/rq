@@ -173,7 +173,7 @@ jo$visualise()
 
 You will notice that the FRED data script fails. Let's see what happens when we run the orchestrator.
 
-```{r}
+```{r, error=TRUE}
 jo$run()
 ```
 
@@ -216,7 +216,7 @@ Okay, let's try running this again.
 jo$run()
 ```
 
-The FRED data retried once, and then succeeded.
+The FRED data retried, and then succeeded.
 
 ```{r}
 jo$visualise()
