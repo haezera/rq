@@ -8,6 +8,7 @@ JobOrchestrator <- R6::R6Class(
 
   private = list(
     .jobs = NULL,
+    .max_retries = NULL,
 
     has_cycle = function() {
       visited <- character(0)
@@ -61,6 +62,7 @@ JobOrchestrator <- R6::R6Class(
     #'   leaving headroom for the orchestrator itself.
     initialize = function(max_workers = parallel::detectCores() - 1L) {
       private$.jobs <- list()
+      private$.max_retries <- list()
       self$max_workers <- max_workers
     },
 
@@ -74,7 +76,8 @@ JobOrchestrator <- R6::R6Class(
       if (!inherits(job, "JobNode")) stop("Expected a JobNode instance.")
       if (job$name %in% names(private$.jobs)) stop(sprintf("Job '%s' already registered.", job$name))
       stopifnot(is.numeric(retries), length(retries) == 1, retries >= 0)
-      job$set_max_retries(retries)
+      job$retries_remaining <- as.integer(retries)
+      private$.max_retries[[job$name]] <- as.integer(retries)
 
       # Wire up the reverse edges so users only need to declare upstream.
       for (dep in job$upstream) {
@@ -263,7 +266,11 @@ JobOrchestrator <- R6::R6Class(
     #' @description Reset all registered jobs to pending and restore their retry counts.
     #'   Use this to re-run the entire graph after a failure.
     reset_all = function() {
-      for (job in private$.jobs) job$reset()
+      for (job in private$.jobs) {
+        job$status <- "pending"
+        job$last_run <- NULL
+        job$retries_remaining <- private$.max_retries[[job$name]]
+      }
       invisible(self)
     },
 

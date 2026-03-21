@@ -35,8 +35,6 @@ A single node in the job DAG.
 \item \href{#method-JobNode-new}{\code{JobNode$new()}}
 \item \href{#method-JobNode-run}{\code{JobNode$run()}}
 \item \href{#method-JobNode-is_ready}{\code{JobNode$is_ready()}}
-\item \href{#method-JobNode-reset}{\code{JobNode$reset()}}
-\item \href{#method-JobNode-set_max_retries}{\code{JobNode$set_max_retries()}}
 \item \href{#method-JobNode-print}{\code{JobNode$print()}}
 \item \href{#method-JobNode-clone}{\code{JobNode$clone()}}
 }
@@ -87,33 +85,6 @@ Whether all upstream jobs have succeeded.
 \if{html}{\out{<div class="r">}}\preformatted{JobNode$is_ready()}\if{html}{\out{</div>}}
 }
 
-}
-\if{html}{\out{<hr>}}
-\if{html}{\out{<a id="method-JobNode-reset"></a>}}
-\if{latex}{\out{\hypertarget{method-JobNode-reset}{}}}
-\subsection{Method \code{reset()}}{
-Reset to pending and restore the original retry count.
-\subsection{Usage}{
-\if{html}{\out{<div class="r">}}\preformatted{JobNode$reset()}\if{html}{\out{</div>}}
-}
-
-}
-\if{html}{\out{<hr>}}
-\if{html}{\out{<a id="method-JobNode-set_max_retries"></a>}}
-\if{latex}{\out{\hypertarget{method-JobNode-set_max_retries}{}}}
-\subsection{Method \code{set_max_retries()}}{
-Set the maximum retries for this job (called by JobOrchestrator$add_job).
-\subsection{Usage}{
-\if{html}{\out{<div class="r">}}\preformatted{JobNode$set_max_retries(n)}\if{html}{\out{</div>}}
-}
-
-\subsection{Arguments}{
-\if{html}{\out{<div class="arguments">}}
-\describe{
-\item{\code{n}}{Integer number of retries.}
-}
-\if{html}{\out{</div>}}
-}
 }
 \if{html}{\out{<hr>}}
 \if{html}{\out{<a id="method-JobNode-print"></a>}}

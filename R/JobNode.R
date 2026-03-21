@@ -5,10 +5,6 @@
 JobNode <- R6::R6Class(
   "JobNode",
 
-  private = list(
-    .max_retries = NULL
-  ),
-
   public = list(
     #' @field name Human-readable name for this job, used in printing and keying the graph.
     name = NULL,
@@ -51,7 +47,6 @@ JobNode <- R6::R6Class(
       self$downstream <- list()
       self$on_fail <- on_fail
       self$retries_remaining <- 0L
-      private$.max_retries <- 0L
       self$status <- "pending"
       self$last_run <- NULL
     },
@@ -75,20 +70,6 @@ JobNode <- R6::R6Class(
     #' @description Whether all upstream jobs have succeeded.
     is_ready = function() {
       all(sapply(self$upstream, function(j) j$status == "success"))
-    },
-
-    #' @description Reset to pending and restore the original retry count.
-    reset = function() {
-      self$status <- "pending"
-      self$last_run <- NULL
-      self$retries_remaining <- private$.max_retries
-    },
-
-    #' @description Set the maximum retries for this job (called by JobOrchestrator$add_job).
-    #' @param n Integer number of retries.
-    set_max_retries = function(n) {
-      private$.max_retries <- as.integer(n)
-      self$retries_remaining <- as.integer(n)
     },
 
     #' @description Print a short summary of the job.
